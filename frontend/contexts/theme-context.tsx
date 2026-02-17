@@ -28,11 +28,6 @@ function getSystemTheme(): ResolvedTheme {
   return window.matchMedia(MEDIA_QUERY).matches ? "dark" : "light";
 }
 
-function getInitialTheme(): Theme {
-  if (typeof window === "undefined") return "system";
-  return (localStorage.getItem(STORAGE_KEY) as Theme) ?? "system";
-}
-
 function applyTheme(resolved: ResolvedTheme) {
   const root = document.documentElement;
   if (resolved === "dark") {
@@ -43,16 +38,21 @@ function applyTheme(resolved: ResolvedTheme) {
 }
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>(getInitialTheme);
-  const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>(() => {
-    const initial = getInitialTheme();
-    return initial === "system" ? getSystemTheme() : initial;
-  });
+  // Always start with server-safe defaults for hydration consistency
+  const [theme, setThemeState] = useState<Theme>("system");
+  const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>("light");
 
-  // Apply theme on initial render (client-only)
+  // Sync from localStorage after mount
+  /* eslint-disable react-hooks/set-state-in-effect -- mount-time localStorage sync */
   useEffect(() => {
-    applyTheme(resolvedTheme);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    const stored = (localStorage.getItem(STORAGE_KEY) as Theme) ?? "system";
+    const resolved =
+      stored === "system" ? getSystemTheme() : (stored as ResolvedTheme);
+    setThemeState(stored);
+    setResolvedTheme(resolved);
+    applyTheme(resolved);
+  }, []);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   // Listen for system preference changes when theme is "system"
   useEffect(() => {

@@ -5,7 +5,6 @@ import {
   useCallback,
   useContext,
   useEffect,
-  useRef,
   useState,
 } from "react";
 import type {
@@ -46,52 +45,53 @@ interface AppContextValue {
 const AppContext = createContext<AppContextValue | null>(null);
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
-  const [settings, setSettings] = useState<UserSettings>(() =>
-    getStorageItem<UserSettings>(
-      StorageKeys.USER_SETTINGS,
-      DEFAULT_USER_SETTINGS,
-    ),
-  );
-  const [mealLogs, setMealLogs] = useState<MealLog[]>(() =>
-    getStorageItem<MealLog[]>(StorageKeys.MEAL_LOGS, []),
-  );
-  const [weeklyPlan, setWeeklyPlan] = useState<WeeklyPlan>(() =>
-    getStorageItem<WeeklyPlan>(StorageKeys.WEEKLY_PLAN, EMPTY_WEEKLY_PLAN),
-  );
-  const [favoriteRecipeIds, setFavoriteRecipeIds] = useState<string[]>(() =>
-    getStorageItem<string[]>(StorageKeys.FAVORITE_RECIPES, []),
-  );
-  const [isLoaded] = useState(true);
+  // Always start with server-safe defaults for hydration consistency
+  const [settings, setSettings] = useState<UserSettings>(DEFAULT_USER_SETTINGS);
+  const [mealLogs, setMealLogs] = useState<MealLog[]>([]);
+  const [weeklyPlan, setWeeklyPlan] = useState<WeeklyPlan>(EMPTY_WEEKLY_PLAN);
+  const [favoriteRecipeIds, setFavoriteRecipeIds] = useState<string[]>([]);
+  const [isLoaded, setIsLoaded] = useState(false);
 
-  // Track whether initial load is complete to avoid persisting defaults on SSR
-  const hasLoadedRef = useRef(typeof window !== "undefined");
-
-  // Persist settings to localStorage
+  // Sync from localStorage after mount (avoids hydration mismatch)
+  /* eslint-disable react-hooks/set-state-in-effect -- legitimate mount-time initialization from localStorage */
   useEffect(() => {
-    if (!hasLoadedRef.current) {
-      hasLoadedRef.current = true;
-      return;
-    }
+    setSettings(
+      getStorageItem<UserSettings>(
+        StorageKeys.USER_SETTINGS,
+        DEFAULT_USER_SETTINGS,
+      ),
+    );
+    setMealLogs(getStorageItem<MealLog[]>(StorageKeys.MEAL_LOGS, []));
+    setWeeklyPlan(
+      getStorageItem<WeeklyPlan>(StorageKeys.WEEKLY_PLAN, EMPTY_WEEKLY_PLAN),
+    );
+    setFavoriteRecipeIds(
+      getStorageItem<string[]>(StorageKeys.FAVORITE_RECIPES, []),
+    );
+    setIsLoaded(true);
+  }, []);
+  /* eslint-enable react-hooks/set-state-in-effect */
+
+  // Persist to localStorage only after initial load from localStorage is complete
+  useEffect(() => {
+    if (!isLoaded) return;
     setStorageItem(StorageKeys.USER_SETTINGS, settings);
-  }, [settings]);
+  }, [settings, isLoaded]);
 
-  // Persist mealLogs to localStorage
   useEffect(() => {
-    if (!hasLoadedRef.current) return;
+    if (!isLoaded) return;
     setStorageItem(StorageKeys.MEAL_LOGS, mealLogs);
-  }, [mealLogs]);
+  }, [mealLogs, isLoaded]);
 
-  // Persist weeklyPlan to localStorage
   useEffect(() => {
-    if (!hasLoadedRef.current) return;
+    if (!isLoaded) return;
     setStorageItem(StorageKeys.WEEKLY_PLAN, weeklyPlan);
-  }, [weeklyPlan]);
+  }, [weeklyPlan, isLoaded]);
 
-  // Persist favoriteRecipeIds to localStorage
   useEffect(() => {
-    if (!hasLoadedRef.current) return;
+    if (!isLoaded) return;
     setStorageItem(StorageKeys.FAVORITE_RECIPES, favoriteRecipeIds);
-  }, [favoriteRecipeIds]);
+  }, [favoriteRecipeIds, isLoaded]);
 
   const updateSettings = useCallback((partial: Partial<UserSettings>) => {
     setSettings((prev) => ({ ...prev, ...partial }));

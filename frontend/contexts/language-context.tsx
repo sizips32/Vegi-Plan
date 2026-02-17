@@ -3,6 +3,7 @@
 import {
   createContext,
   useContext,
+  useEffect,
   useState,
   useCallback,
   type ReactNode,
@@ -16,17 +17,6 @@ const STORAGE_KEY = "vegiplan-locale";
 
 const dictionaries: Record<Locale, Dictionary> = { en, ko };
 
-function getInitialLocale(): Locale {
-  if (typeof window === "undefined") return "en";
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored === "en" || stored === "ko") return stored;
-  } catch {
-    // localStorage may be unavailable
-  }
-  return "en";
-}
-
 interface LanguageContextValue {
   locale: Locale;
   setLocale: (locale: Locale) => void;
@@ -36,7 +26,22 @@ interface LanguageContextValue {
 const LanguageContext = createContext<LanguageContextValue | null>(null);
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
-  const [locale, setLocaleState] = useState<Locale>(getInitialLocale);
+  // Always start with "en" for SSR/hydration consistency
+  const [locale, setLocaleState] = useState<Locale>("en");
+
+  // Sync from localStorage after mount
+  /* eslint-disable react-hooks/set-state-in-effect -- mount-time localStorage sync */
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (stored === "en" || stored === "ko") {
+        setLocaleState(stored);
+      }
+    } catch {
+      // localStorage unavailable
+    }
+  }, []);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const setLocale = useCallback((next: Locale) => {
     setLocaleState(next);
