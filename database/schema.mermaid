@@ -1,0 +1,41 @@
+erDiagram
+    Users {
+        UUID id PK
+        VARCHAR name
+        VARCHAR email
+        VARCHAR password_hash
+        ENUM vegetarian_type "Vegan, Lacto, Ovo, Penco, Flexitarian"
+        JSONB allergies "Array of allergy strings"
+        JSONB nutrient_goals "Daily targets for B12, Iron, etc."
+        TIMESTAMP created_at
+    }
+
+    Recipes {
+        UUID id PK
+        VARCHAR name
+        TEXT description
+        JSONB ingredients "List of ingredients with quantities"
+        JSONB nutrition_facts "Calories, Protein, B12, Iron, etc."
+        BOOL is_vegan
+        VARCHAR image_url
+    }
+
+    Ingredients {
+        UUID id PK
+        VARCHAR name
+        BOOL is_vegan
+        JSONB allergy_info
+    }
+
+    MealLogs {
+        UUID id PK
+        UUID user_id FK
+        UUID recipe_id FK
+        ENUM meal_type "Breakfast, Lunch, Dinner, Snack"
+        DATE date
+        TIMESTAMP created_at
+    }
+
+    Users ||--o{ MealLogs : "logs"
+    Recipes ||--o{ MealLogs : "is logged in"
+    Recipes }|--|{ Ingredients : "contains"
